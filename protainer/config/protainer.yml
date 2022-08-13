@@ -1,0 +1,5 @@
+protainer.inputs:
+- type: log
+  enabled: true
+  paths:
+    - /var/log/nginx/*.log

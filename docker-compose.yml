@@ -1,6 +1,7 @@
 version: '3.2'
 name: ELK
 services:
+
   elasticsearch:
     container_name: elasticsearch
     build:
@@ -15,9 +16,13 @@ services:
       - type: volume
         source: elasticsearch
         target: /usr/share/elasticsearch/data
+      - type: volume
+        source: elastic-backup
+        target: /usr/share/elasticsearch/backup
     ports:
       - "9200:9200"
       - "9300:9300"
+    restart: always
     environment:
       ES_JAVA_OPTS: "-Xmx256m -Xms256m"
       ELASTIC_PASSWORD: changeme
@@ -46,6 +51,7 @@ services:
       - "5044"
     environment:
       LS_JAVA_OPTS: "-Xmx256m -Xms256m"
+    restart: always
     networks:
       - elk
     depends_on:
@@ -62,6 +68,7 @@ services:
         source: ./kibana/config/kibana.yml
         target: /usr/share/kibana/config/kibana.yml
         read_only: true
+    restart: always
     ports:
       - "5601:5601"
     networks:
@@ -78,25 +85,30 @@ services:
     ports:
       - "80:80"
       - "90:90"
+      - "100:100"
       - "443:443"
     links:
       - kibana:kibana
       - elasticsearch:elasticsearch
+      - portainer:portainer
+    restart: always
     depends_on: 
       - kibana
       - elasticsearch
+      - portainer
     networks:
       - elk
 
   filebeat:
-    container_name: filebeat
     build: ./filebeat
+    container_name: filebeat
     entrypoint: "filebeat -e -strict.perms=false"
     volumes:
       - ./filebeat/config/filebeat.yml:/usr/share/filebeat/filebeat.yml
       - ./nginx/log:/var/log/nginx
     networks:
       - elk
+    restart: always
     depends_on: 
       - nginx
       - logstash
@@ -104,10 +116,29 @@ services:
       - kibana
     links: 
       - logstash
+      
+  portainer:
+    build: ./portainer
+    container_name: portainer
+    command: ['--admin-password', '$$$$2y$$$$05$$$$bsb.XmF.r2DU6/9oVUaDxu3.Lxhmg1R8M0NMLK6JJKUiqUcaNjvdu']
+    restart: always
+    environment:
+      - DOCKER_EXTENSION=1
+    security_opt:
+      - no-new-privileges:true
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - portainer_data:/data
+    ports:
+      - 9443:9443
+    networks:
+      - elk
 
 networks:
   elk:
     driver: bridge
 
 volumes:
+  portainer_data:
+  elastic-backup:
   elasticsearch:
